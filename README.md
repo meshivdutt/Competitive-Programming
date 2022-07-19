@@ -1,3 +1,1 @@
-# Competitive-Programming
-c++
-basic c++ programs
+basic c++ programs for competitive programming
