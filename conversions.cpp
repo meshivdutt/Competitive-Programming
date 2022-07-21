@@ -1,3 +1,6 @@
+//PROGRAM TO CONVERT BINARY TO DECIMAL
+
+
 #include<bits/stdc++.h>
 using namespace std;
 int main() {
