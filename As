@@ -1,0 +1,180 @@
+# Import required libraries
+import requests
+import json
+import pandas as pd
+from pyspark.sql import SparkSession
+
+def get_sharepoint_list_data(client_id, client_secret, tenant_id, site_id, list_id):
+    """
+    Retrieve data from a SharePoint list using Microsoft Graph API
+    
+    Parameters:
+    -----------
+    client_id : str
+        Azure AD application ID
+    client_secret : str
+        Azure AD application secret
+    tenant_id : str
+        Azure AD tenant ID
+    site_id : str
+        SharePoint site ID or site URL path
+    list_id : str
+        SharePoint list ID or list name
+        
+    Returns:
+    --------
+    dict
+        JSON response containing the SharePoint list items
+    """
+    # Get authentication token
+    token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    token_data = {
+        'grant_type': 'client_credentials',
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'scope': 'https://graph.microsoft.com/.default'
+    }
+    
+    token_response = requests.post(token_url, data=token_data)
+    token_response.raise_for_status()
+    access_token = token_response.json().get('access_token')
+    
+    # Set up headers for Graph API requests
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
+    
+    # If site_id looks like a URL, extract the site identifier
+    if site_id.startswith('https://'):
+        # Get the site ID from the URL
+        site_info_url = f"https://graph.microsoft.com/v1.0/sites/root:/{site_id.split('/')[-1]}"
+        site_response = requests.get(site_info_url, headers=headers)
+        site_response.raise_for_status()
+        site_id = site_response.json().get('id')
+    
+    # If list_id is a name instead of ID, get the list ID
+    if not list_id.startswith('{'):
+        list_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/lists?$filter=displayName eq '{list_id}'"
+        list_response = requests.get(list_url, headers=headers)
+        list_response.raise_for_status()
+        list_id = list_response.json().get('value')[0].get('id')
+    
+    # Get list items
+    items_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/lists/{list_id}/items?$expand=fields"
+    items_response = requests.get(items_url, headers=headers)
+    items_response.raise_for_status()
+    
+    return items_response.json()
+
+def process_sharepoint_data(response_data):
+    """
+    Process the SharePoint list data into a pandas DataFrame
+    
+    Parameters:
+    -----------
+    response_data : dict
+        JSON response from the SharePoint list API call
+        
+    Returns:
+    --------
+    pandas.DataFrame
+        DataFrame containing the processed SharePoint list data
+    """
+    # Extract the items and their fields
+    items = response_data.get('value', [])
+    
+    # Initialize a list to store processed items
+    processed_items = []
+    
+    # Process each item
+    for item in items:
+        fields = item.get('fields', {})
+        # Remove internal SharePoint fields
+        for key in list(fields.keys()):
+            if key.startswith('@'):
+                fields.pop(key)
+        processed_items.append(fields)
+    
+    # Convert to pandas DataFrame
+    return pd.DataFrame(processed_items)
+
+def sharepoint_to_databricks(client_id, client_secret, tenant_id, sharepoint_url, list_name):
+    """
+    Main function to extract SharePoint list data and load into a Databricks DataFrame
+    
+    Parameters:
+    -----------
+    client_id : str
+        Azure AD application ID
+    client_secret : str
+        Azure AD application secret
+    tenant_id : str
+        Azure AD tenant ID
+    sharepoint_url : str
+        Full URL to the SharePoint site
+    list_name : str
+        Name of the SharePoint list
+        
+    Returns:
+    --------
+    pyspark.sql.DataFrame
+        Databricks DataFrame containing the SharePoint list data
+    """
+    # Extract the site path from the URL
+    site_path = '/'.join(sharepoint_url.split('/')[3:])
+    
+    # Get the list data from SharePoint
+    list_data = get_sharepoint_list_data(client_id, client_secret, tenant_id, site_path, list_name)
+    
+    # Process the data into a pandas DataFrame
+    pandas_df = process_sharepoint_data(list_data)
+    
+    # Convert to Spark DataFrame
+    spark = SparkSession.builder.getOrCreate()
+    spark_df = spark.createDataFrame(pandas_df)
+    
+    return spark_df
+
+# Example usage
+if __name__ == "__main__":
+    # Replace these variables with your actual values
+    client_id = "your-app-id"
+    client_secret = "your-app-secret"
+    tenant_id = "your-tenant-id"
+    sharepoint_url = "https://your-tenant.sharepoint.com/sites/your-site"
+    list_name = "Your List Name"
+    
+    # Extract data and create Databricks DataFrame
+    df = sharepoint_to_databricks(client_id, client_secret, tenant_id, sharepoint_url, list_name)
+    
+    # Show the DataFrame
+    df.show()
+    
+    # Optional: Save the DataFrame as a Delta table
+    df.write.format("delta").mode("overwrite").saveAsTable("sharepoint_list_data")Ta
+
+The Additional District Magistrate(Gen.)
+
+District Project Managemem Unit
+
+Kanyashree, Alipurduar
+
+Subject: Submission of Explanation and Action Taken Report Regarding Kanyashree CMO Complaint of Anima Barman
+
+Sir,
+
+in response to the Kanyashree CMO complaint regarding Anima Barman (DOB: 10-02-2006, Kanyashree ID: 19220406201190000032), I would like to inform you that upon receiving the complaint, a hearing was conducted on 11-06-2025. The Nodal Officer, the Teacher-in-Charge of Raichenga Vidyaniketan High School, and the complainant Anima Barman were present during the hearing
+
+During the hearing, Anima Barman admitted that she did not attend school regularly during the financial year 2023-24 and was present for only 18 days in Class XI. Additionally, the mobile number registered on the Kanyashree portal was found to be switched off As a result, she did not fill out the K2 upgradation form Consequently, her upgradation application was marked as "Non-Upgradable" on the portal before its closure for the 2023-24 financial year, with the reason incorrectly recorded as "Married"
+
+However, the Data Entry Operator of Raichenga Vidyaniketan High School admitted that he had intended to select the reason as "Others," but mistakenly selected "Married."
+
+Anima Barman visited the school to enquire about her K2 upgradation only after the closure of the 2023-24 financial year. She was then informed about the possibility of applying for a Fresh K2. Since the Fresh K2 application process for the financial year 2024-25 began late and only a few days remained, the Nodal Officer of Raichenga Vidyaniketan High School submitted an online request for ber Fresh K2 form on 29-01-2025. However, her application could only be forwarded to the BDO Felekata on 19-02-2025, as she submitted her documents on that date and also took additional time to open a new bank account. By that time, she had already crossed the age eligibility criteria for K2. Meanwhile, the undersigned has obtained a written explanation from the concerned institution, which is self-explanatory, Additionally, the Nodal Teacher of the said school has since been changed This is for your kind information and necessary action.
+
+x102425 1313 KB
+
+Q Search
+
+Block Development Officer
